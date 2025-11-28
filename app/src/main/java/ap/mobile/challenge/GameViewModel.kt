@@ -1,5 +1,6 @@
 package ap.mobile.challenge
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ap.mobile.challenge.api.History
@@ -19,6 +20,10 @@ import retrofit2.Response
 import kotlin.random.Random
 
 class GameViewModel: ViewModel() {
+
+  companion object {
+    private const val TAG = "HistoryDebug"
+  }
 
   // Reel values 1..9
   private val _slot1 = MutableStateFlow(2)
@@ -105,14 +110,26 @@ class GameViewModel: ViewModel() {
             response: Response<List<History>?>
           ) {
             if (response.isSuccessful) {
-              _histories.value = response.body().orEmpty()
+              val data = response.body().orEmpty()
+              val message = "Loaded history count=${data.size}"
+              Log.d(TAG, message)
+              println(message)
+              _histories.value = data
+            } else {
+              val message = "Load history failed code=${response.code()}"
+              Log.w(TAG, message)
+              println(message)
             }
           }
 
           override fun onFailure(
             call: Call<List<History>?>,
             t: Throwable
-          ) {}
+          ) {
+            val message = "Load history error: ${t.message}"
+            Log.e(TAG, message, t)
+            println(message)
+          }
         }
       )
     }
@@ -125,12 +142,28 @@ class GameViewModel: ViewModel() {
         response: Response<List<History>>
       ) {
         if (response.isSuccessful) {
-          val newHistory = response.body()?.firstOrNull() ?: return
-          _histories.update { it + newHistory }
+          val newHistory = response.body()?.firstOrNull()
+          if (newHistory != null) {
+            val message = "Inserted history id=${newHistory.id} slots=[${newHistory.slot1}, ${newHistory.slot2}, ${newHistory.slot3}] win=${newHistory.status}"
+            Log.d(TAG, message)
+            println(message)
+            _histories.update { it + newHistory }
+          } else {
+            val message = "Insert response empty"
+            Log.w(TAG, message)
+            println(message)
+          }
+        } else {
+          val message = "Insert failed code=${response.code()}"
+          Log.w(TAG, message)
+          println(message)
         }
       }
 
       override fun onFailure(call: Call<List<History>>, t: Throwable) {
+        val message = "Insert error: ${t.message}"
+        Log.e(TAG, message, t)
+        println(message)
       }
     })
   }
@@ -139,11 +172,29 @@ class GameViewModel: ViewModel() {
     RetrofitClient.apiService.deleteHistory("eq.$id").enqueue(object: Callback<Void> {
       override fun onResponse(call: Call<Void>, response: Response<Void>) {
         if (response.isSuccessful) {
+          val removed = _histories.value.firstOrNull { it.id == id }
+          val message = buildString {
+            append("Deleted history id=$id")
+            removed?.let {
+              append(" slots=[")
+              append("${it.slot1}, ${it.slot2}, ${it.slot3}")
+              append("] win=${it.status}")
+            }
+          }
+          Log.d(TAG, message)
+          println(message)
           _histories.update { list -> list.filterNot { it.id == id } }
+        } else {
+          val message = "Delete failed id=$id code=${response.code()}"
+          Log.w(TAG, message)
+          println(message)
         }
       }
 
       override fun onFailure(call: Call<Void>, t: Throwable) {
+        val message = "Delete error id=$id: ${t.message}"
+        Log.e(TAG, message, t)
+        println(message)
       }
     })
   }
