@@ -105,7 +105,7 @@ class GameViewModel: ViewModel() {
             response: Response<List<History>?>
           ) {
             if (response.isSuccessful) {
-              _histories.value = response.body()!!
+              _histories.value = response.body().orEmpty()
             }
           }
 
@@ -126,7 +126,7 @@ class GameViewModel: ViewModel() {
       ) {
         if (response.isSuccessful) {
           val newHistory = response.body()?.firstOrNull() ?: return
-          _histories.update { listOf(newHistory) + it }
+          _histories.update { it + newHistory }
         }
       }
 
@@ -136,7 +136,7 @@ class GameViewModel: ViewModel() {
   }
 
   fun delete(id: Int) {
-    RetrofitClient.apiService.deleteHistory(id.toString()).enqueue(object: Callback<Void> {
+    RetrofitClient.apiService.deleteHistory("eq.$id").enqueue(object: Callback<Void> {
       override fun onResponse(call: Call<Void>, response: Response<Void>) {
         if (response.isSuccessful) {
           _histories.update { list -> list.filterNot { it.id == id } }
