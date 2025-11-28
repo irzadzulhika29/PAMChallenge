@@ -17,17 +17,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -36,6 +41,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ap.mobile.challenge.api.History
 import ap.mobile.challenge.ui.theme.ChallengeTheme
 
 class MainActivity : ComponentActivity() {
@@ -65,12 +71,20 @@ fun GameScreen(modifier: Modifier = Modifier, vm: GameViewModel) {
   val slot3 by vm.slot3.collectAsState()
   val histories by vm.histories.collectAsState()
   val phase by vm.phase.collectAsState()
+  var pendingDelete by remember { mutableStateOf<History?>(null) }
+  val listState = rememberLazyListState()
 
   val buttonLabel = when (phase) {
     0 -> "Pull"
     1 -> "Stop 1"
     2 -> "Stop 2"
     else -> "Stop 3"
+  }
+
+  LaunchedEffect(histories.size) {
+    if (histories.isNotEmpty()) {
+      listState.animateScrollToItem(histories.lastIndex)
+    }
   }
 
   Column(modifier.fillMaxSize().padding(horizontal = 16.dp),
@@ -93,7 +107,7 @@ fun GameScreen(modifier: Modifier = Modifier, vm: GameViewModel) {
       Text(text = buttonLabel)
     }
     Spacer(Modifier.height(12.dp))
-    LazyColumn(Modifier.weight(1f)) {
+    LazyColumn(Modifier.weight(1f), state = listState) {
       items(histories) { item ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
           Image(painter = painterResource(toResourceId(item.slot1)), contentDescription = "")
@@ -105,12 +119,32 @@ fun GameScreen(modifier: Modifier = Modifier, vm: GameViewModel) {
           else Image(painter = painterResource(R.drawable.thumbs_down_64), contentDescription = "")
           Spacer(Modifier.width(16.dp))
           Button(onClick = {
-            vm.delete(item.id!!)
+            pendingDelete = item
           }, contentPadding = PaddingValues.Zero) {
             Icon(Icons.Default.Delete, contentDescription = "")
           }
         }
       }
+    }
+    if (pendingDelete != null) {
+      AlertDialog(
+        onDismissRequest = { pendingDelete = null },
+        confirmButton = {
+          TextButton(onClick = {
+            pendingDelete?.id?.let { vm.delete(it) }
+            pendingDelete = null
+          }) {
+            Text("Delete")
+          }
+        },
+        dismissButton = {
+          TextButton(onClick = { pendingDelete = null }) {
+            Text("Cancel")
+          }
+        },
+        title = { Text("Delete history") },
+        text = { Text("Are you sure you want to delete this history item?") }
+      )
     }
     Spacer(Modifier.height(12.dp))
     Button(onClick = {vm.loadHistory()}) {
