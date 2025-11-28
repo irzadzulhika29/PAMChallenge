@@ -105,7 +105,7 @@ class GameViewModel: ViewModel() {
             response: Response<List<History>?>
           ) {
             if (response.isSuccessful) {
-              _histories.value = response.body()!!
+              _histories.value = response.body().orEmpty()
             }
           }
 

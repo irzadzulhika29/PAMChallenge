@@ -108,7 +108,7 @@ fun GameScreen(modifier: Modifier = Modifier, vm: GameViewModel) {
     }
     Spacer(Modifier.height(12.dp))
     LazyColumn(Modifier.weight(1f), state = listState) {
-      items(histories) { item ->
+      items(histories, key = { it.id ?: it.hashCode() }) { item ->
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
           Image(painter = painterResource(toResourceId(item.slot1)), contentDescription = "")
           Image(painter = painterResource(toResourceId(item.slot2)), contentDescription = "")
