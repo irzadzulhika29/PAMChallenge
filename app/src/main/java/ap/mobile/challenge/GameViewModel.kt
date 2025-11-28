@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import retrofit2.Call
@@ -42,19 +43,19 @@ class GameViewModel: ViewModel() {
 
   fun pull() {
     when (_phase.value) {
-      0 -> { // start spinning all reels
+      0 -> {
         startSpinning()
         _phase.value = 1
       }
-      1 -> { // stop first reel
+      1 -> {
         job1?.cancel(); job1 = null
         _phase.value = 2
       }
-      2 -> { // stop second reel
+      2 -> {
         job2?.cancel(); job2 = null
         _phase.value = 3
       }
-      3 -> { // stop third reel and evaluate
+      3 -> {
         job3?.cancel(); job3 = null
         _phase.value = 0
         evaluateAndStore()
@@ -84,7 +85,6 @@ class GameViewModel: ViewModel() {
     val s2 = _slot2.value
     val s3 = _slot3.value
     val status = (s1 == s2 && s2 == s3)
-    // Create a History with these values if the API expects it; otherwise call insert stub
     insert(
       History(
         id = null,
@@ -119,11 +119,33 @@ class GameViewModel: ViewModel() {
   }
 
   fun insert(history: History) {
-    // TODO hook up to Retrofit insert API if available
+    RetrofitClient.apiService.addHistory(history).enqueue(object: Callback<List<History>> {
+      override fun onResponse(
+        call: Call<List<History>>,
+        response: Response<List<History>>
+      ) {
+        if (response.isSuccessful) {
+          val newHistory = response.body()?.firstOrNull() ?: return
+          _histories.update { listOf(newHistory) + it }
+        }
+      }
+
+      override fun onFailure(call: Call<List<History>>, t: Throwable) {
+      }
+    })
   }
 
   fun delete(id: Int) {
-    // TODO hook up to Retrofit delete API if available
+    RetrofitClient.apiService.deleteHistory(id.toString()).enqueue(object: Callback<Void> {
+      override fun onResponse(call: Call<Void>, response: Response<Void>) {
+        if (response.isSuccessful) {
+          _histories.update { list -> list.filterNot { it.id == id } }
+        }
+      }
+
+      override fun onFailure(call: Call<Void>, t: Throwable) {
+      }
+    })
   }
 
   override fun onCleared() {
